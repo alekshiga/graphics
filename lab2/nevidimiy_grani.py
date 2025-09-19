@@ -1,7 +1,6 @@
 import pygame
 import numpy as np
 import math
-import time
 
 pygame.init()
 width, height = 800, 600
@@ -160,9 +159,6 @@ rotation_angle_x, rotation_angle_y, rotation_angle_z = 0, 0, 0
 translation_x, translation_y, translation_z = 0, 0, 0
 scale_factor = 1.0
 
-animation_active = False
-animation_start_time = None
-
 rotation_speed = 180
 radius_x, radius_y, radius_z = 50, 30, 20
 
@@ -188,26 +184,12 @@ while running:
                 scale_factor *= 1.1
             if event.key == pygame.K_KP_MINUS or event.key == pygame.K_MINUS:
                 scale_factor /= 1.1
-            if event.key == pygame.K_s:
-                animation_active = not animation_active
-                if animation_active:
-                    animation_start_time = time.time()
 
     mouse_buttons = pygame.mouse.get_pressed()
     if mouse_buttons[0]:
         dx, dy = pygame.mouse.get_rel()
         rotation_angle_y += dx * 0.5
         rotation_angle_x += dy * 0.5
-
-    if animation_active:
-        elapsed = time.time() - animation_start_time
-
-        rotation_angle_y = (rotation_speed * elapsed) % 360
-        rotation_angle_x = (rotation_speed * elapsed / 2) % 360
-
-        translation_x = radius_x * math.cos(elapsed * 2)
-        translation_y = radius_y * math.sin(elapsed * 3)
-        translation_z = radius_z * math.sin(elapsed * 1.5)
 
     translation_mat = create_translation_matrix(translation_x, translation_y, translation_z)
     rotation_mat_x = create_rotation_matrix_x(rotation_angle_x)
