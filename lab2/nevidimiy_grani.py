@@ -5,7 +5,7 @@ import math
 pygame.init()
 width, height = 800, 600
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("ЛР№2: Удаление невидимых поверхностей")
+pygame.display.set_caption("Удаление невидимых повeрхностей")
 clock = pygame.time.Clock()
 
 # (x, y, z, 1)
