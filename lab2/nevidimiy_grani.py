@@ -236,8 +236,6 @@ while running:
     offset_y = height / 2
 
     for y in range(height):
-        # пошаговая отрисовка для наглядности
-        pygame.draw.line(screen, (55, 55, 55), (0, y), (width, y), 1)
         intersections = []
         for i, poly in enumerate(projected_polygons):
             for j in range(len(poly)):
@@ -255,56 +253,44 @@ while running:
 
         intersections.sort(key=lambda item: item['x'])
 
-        # пошаговый вывод в консоль
-        print(f"Строка {y} ")
-        print(f"Точки пересечения: {[round(p['x'], 2) for p in intersections]}")
-
         i = 0
-        while i < len(intersections) - 1:
+        while i < len(intersections):
             x_start = intersections[i]['x']
-            x_end = intersections[i + 1]['x']
 
-            mid_x = (x_start + x_end) / 2
+            j = i + 1
+            while j < len(intersections) and intersections[j]['x'] == x_start:
+                j += 1
 
-            closest_z = np.inf
-            closest_poly_idx = -1
+            x_end = intersections[j]['x'] if j < len(intersections) else x_start
 
-            # определение активных многоугольников
-            active_polygons_indices = {intersections[i]['poly_idx'], intersections[i + 1]['poly_idx']}
+            if x_end > x_start:
+                mid_x = (x_start + x_end) / 2
 
-            for poly_idx in active_polygons_indices:
-                poly_2d = projected_polygons[poly_idx][:, :2]
+                closest_z = np.inf
+                closest_poly_idx = -1
 
-                test_point_x = mid_x
-                test_point_y = y - offset_y
+                for poly_idx in range(len(transformed_polygons_3d)):
+                    poly_2d = projected_polygons[poly_idx][:, :2]
 
-                if is_point_in_polygon(test_point_x, test_point_y, poly_2d):
-                    poly_3d = transformed_polygons_3d[poly_idx]
-                    p1, p2, p3 = poly_3d[0][:3], poly_3d[1][:3], poly_3d[2][:3]
+                    if is_point_in_polygon(mid_x, y - offset_y, poly_2d):
+                        poly_3d = transformed_polygons_3d[poly_idx]
+                        p1, p2, p3 = poly_3d[0][:3], poly_3d[1][:3], poly_3d[2][:3]
 
-                    z_val = get_z_on_plane(p1, p2, p3, test_point_x, test_point_y)
+                        z_val = get_z_on_plane(p1, p2, p3, mid_x, y - offset_y)
 
-                    if z_val < closest_z:
-                        closest_z = z_val
-                        closest_poly_idx = poly_idx
+                        if z_val < closest_z:
+                            closest_z = z_val
+                            closest_poly_idx = poly_idx
 
-            if closest_poly_idx != -1:
-                color = colors[closest_poly_idx]
-                pygame.draw.line(screen, color,
-                                 (x_start + offset_x, y),
-                                 (x_end + offset_x, y), 1)
+                if closest_poly_idx != -1:
+                    color = colors[closest_poly_idx]
+                    pygame.draw.line(screen, color,
+                                     (x_start + offset_x, y),
+                                     (x_end + offset_x, y), 1)
 
-                # вывод в консоль информации о выбранном многоугольнике
-                print(
-                    f"  В интервале [{round(x_start, 2)}, {round(x_end, 2)}]: выбран многоугольник {closest_poly_idx} (Z = {round(closest_z, 2)})")
+            i = j
 
-            i += 1
+    pygame.display.flip()
+    clock.tick(60)
 
-        pygame.display.flip()
-        # хотел добавить задержку для наглядности, но с ней не работает управление
-        # pygame.time.delay(10)
-
-
-    screen.fill((0, 0, 0))
-
-    pygame.quit()
+pygame.quit()
