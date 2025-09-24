@@ -123,6 +123,13 @@ projection_matrix = np.array([
     [0, 0, 0, 1]
 ])
 
+axis_vertices = np.array([
+    [0, 0, 0, 1], # начало координат
+    [100, 0, 0, 1], # ось X
+    [0, 100, 0, 1], # ось Y
+    [0, 0, 100, 1], # ось Z
+])
+
 running = True
 
 # параметры преобразований
@@ -203,6 +210,27 @@ while running:
                          (p1[0] + offset_x, p1[1] + offset_y),
                          (p2[0] + offset_x, p2[1] + offset_y), 2)
 
+        # та же самая модельная матрица для осей
+        transformed_axes = axis_vertices @ model_matrix @ projection_matrix
+
+        # отображение осей разными цветами
+        origin = (transformed_axes[0][0] + offset_x, transformed_axes[0][1] + offset_y)
+        x_axis = (transformed_axes[1][0] + offset_x, transformed_axes[1][1] + offset_y)
+        y_axis = (transformed_axes[2][0] + offset_x, transformed_axes[2][1] + offset_y)
+        z_axis = (transformed_axes[3][0] + offset_x, transformed_axes[3][1] + offset_y)
+
+        pygame.draw.line(screen, (255, 0, 0), origin, x_axis, 2)  # ось X - красная
+        pygame.draw.line(screen, (0, 255, 0), origin, y_axis, 2)  # ось Y - зеленая
+        pygame.draw.line(screen, (0, 0, 255), origin, z_axis, 2)  # ось Z - синяя
+
+        font = pygame.font.SysFont('Arial', 18, bold=True)
+        text_x = font.render('X', True, (255, 0, 0))
+        text_y = font.render('Y', True, (0, 255, 0))
+        text_z = font.render('Z', True, (0, 0, 255))
+
+        screen.blit(text_x, x_axis)
+        screen.blit(text_y, y_axis)
+        screen.blit(text_z, z_axis)
     pygame.display.flip()
     clock.tick(60)
 
