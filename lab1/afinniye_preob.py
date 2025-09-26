@@ -138,10 +138,19 @@ translation_x, translation_y, translation_z = 0, 0, 0
 scale_factor = 1.0
 
 animation_active = False
-animation_start_time = None
+initial_rotation_speed = 3
+initial_translation_speed = 5
+decay_factor = 0.955 # уменьшает скорость в каждом кадре
 
-# скорости вращения и амплитуды движения
-rotation_speed = 180  # градусов в секунду
+current_rotation_speed_x = 2
+current_rotation_speed_y = 2
+current_rotation_speed_z = 2
+
+current_translation_speed_x = 10
+current_translation_speed_y = 0
+current_translation_speed_z = 0
+
+rotation_speed = 180
 radius_x, radius_y, radius_z = 50, 30, 20
 
 while running:
@@ -177,14 +186,27 @@ while running:
         rotation_angle_x += dy * 0.5
 
     if animation_active:
-        elapsed = time.time() - animation_start_time
+        rotation_angle_y += current_rotation_speed_y
+        rotation_angle_x += current_rotation_speed_x
+        rotation_angle_z += current_rotation_speed_z
 
-        rotation_angle_y = (rotation_speed * elapsed) % 360
-        rotation_angle_x = (rotation_speed * elapsed / 2) % 360  # немного медленнее по X
+        translation_x += current_translation_speed_x
+        translation_y += current_translation_speed_y
+        translation_z += current_translation_speed_z
 
-        translation_x = radius_x * math.cos(elapsed * 2)
-        translation_y = radius_y * math.sin(elapsed * 3)
-        translation_z = radius_z * math.sin(elapsed * 1.5)
+        current_rotation_speed_x *= decay_factor
+        current_rotation_speed_y *= decay_factor
+        current_rotation_speed_z *= decay_factor
+
+        current_translation_speed_x *= decay_factor
+        current_translation_speed_y *= decay_factor
+        current_translation_speed_z *= decay_factor
+
+        if (abs(current_rotation_speed_x) < 0.05 and
+                abs(current_rotation_speed_y) < 0.05 and
+                abs(current_translation_speed_x) < 0.05 and
+                abs(current_translation_speed_y) < 0.05):
+            animation_active = False
 
     translation_mat = create_translation_matrix(translation_x, translation_y, translation_z)
     rotation_mat_x = create_rotation_matrix_x(rotation_angle_x)
@@ -210,8 +232,7 @@ while running:
                          (p1[0] + offset_x, p1[1] + offset_y),
                          (p2[0] + offset_x, p2[1] + offset_y), 2)
 
-        # та же самая модельная матрица для осей
-        transformed_axes = axis_vertices @ model_matrix @ projection_matrix
+        transformed_axes = axis_vertices @ projection_matrix
 
         # отображение осей разными цветами
         origin = (transformed_axes[0][0] + offset_x, transformed_axes[0][1] + offset_y)
