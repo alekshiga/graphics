@@ -1,9 +1,6 @@
-from random import triangular
-
-import pygame
-import numpy as np
 import math
-import time
+import numpy as np
+import pygame
 
 pygame.init()
 width, height = 800, 600
@@ -46,7 +43,7 @@ def create_rotation_figure(curve):
 
     return np.array(vertices), triangles
 
-vertices, triangles = create_rotation_figure(curved_line);
+vertices, triangles = create_rotation_figure(curved_line)
 
 # матрицы преобразований (из лр1)
 def create_translation_matrix(tx, ty, tz):
@@ -154,27 +151,25 @@ while running:
     offset_x = width / 2
     offset_y = height / 2
 
-    # сортируем треугольники по Z (для правильного отображения ближних к камере) #todo почему-то некоторые треугольники всё равно накладываются на другие
+    # сортируем треугольники по Z (для правильного закрашивания невидимой части тела)
     sorted_triangles = sorted(triangles, key=lambda tri: -np.mean(transformed_vertices[tri, 2]))
+    screen.fill((0, 0, 0))
 
-    for tri in sorted_triangles:
+    transformed_vertices = vertices @ model_matrix
+    projected_vertices = transformed_vertices @ projection_matrix
+
+    for tri in triangles:
         v1_idx, v2_idx, v3_idx = tri
 
-        # проекция вершин на экран
-        p1_proj = transformed_vertices[v1_idx]
-        p2_proj = transformed_vertices[v2_idx]
-        p3_proj = transformed_vertices[v3_idx]
+        p1_proj = projected_vertices[v1_idx]
+        p2_proj = projected_vertices[v2_idx]
+        p3_proj = projected_vertices[v3_idx]
 
         p1_screen = (p1_proj[0] + offset_x, p1_proj[1] + offset_y)
         p2_screen = (p2_proj[0] + offset_x, p2_proj[1] + offset_y)
         p3_screen = (p3_proj[0] + offset_x, p3_proj[1] + offset_y)
 
-        #todo сейчас треугольники сплошные, белого цвета
-        pygame.draw.polygon(screen, (255, 255, 255), [p1_screen, p2_screen, p3_screen], 0)
-
-        #todo и с контуром, чтобы видеть сами треугольники
-        pygame.draw.polygon(screen, (100, 100, 100), [p1_screen, p2_screen, p3_screen], 1)
-
+        pygame.draw.polygon(screen, (255, 255, 255), [p1_screen, p2_screen, p3_screen], 1)
     pygame.display.flip()
     clock.tick(60)
 
