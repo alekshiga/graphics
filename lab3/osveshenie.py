@@ -56,12 +56,12 @@ def create_rotation_figure_with_caps(curve):
     for i in range(segment_count):
         idx1 = i * number_points_in_curve  # нижнее кольцо
         idx2 = ((i + 1) % segment_count) * number_points_in_curve
-        triangles.append([bottom_center_idx, idx1, idx2])
+        triangles.append([bottom_center_idx, idx2, idx1])
 
     for i in range(segment_count):
         idx1 = i * number_points_in_curve + (number_points_in_curve - 1)  # верхнее кольцо
         idx2 = ((i + 1) % segment_count) * number_points_in_curve + (number_points_in_curve - 1)
-        triangles.append([top_center_idx, idx2, idx1])
+        triangles.append([top_center_idx, idx1, idx2])
 
 
     return np.array(vertices), triangles
@@ -136,7 +136,7 @@ def calculate_normals(vertices, triangles):
         edge1 = v1 - v0
         edge2 = v2 - v0
         normal = np.cross(edge1, edge2)
-        normal /= np.linalg.norm(normal) + 1e-10  # нормализация, +1e-10 чтобы избежать деления на 0
+        normal /= np.linalg.norm(normal)
 
         for idx in tri:
             normals[idx] += normal
@@ -272,10 +272,10 @@ while running:
         c2 = phong_lighting(p2_world, n2, light_pos, camera_pos)
         c3 = phong_lighting(p3_world, n3, light_pos, camera_pos)
 
-        color = (
-            (c1[0] + c2[0] + c3[0]),
-            (c1[1] + c2[1] + c3[1]),
-            (c1[2] + c2[2] + c3[2]),
+        avg_color = (
+            (c1[0] + c2[0] + c3[0]) // 3,
+            (c1[1] + c2[1] + c3[1]) // 3,
+            (c1[2] + c2[2] + c3[2]) // 3,
         )
 
         # проекция на XY
@@ -288,7 +288,7 @@ while running:
         p3_screen = (int(p3_proj[0] + offset_x), int(p3_proj[1] + offset_y))
 
         # закрашиваем треугольники средними цветами
-        pygame.draw.polygon(screen, color, [p1_screen, p2_screen, p3_screen])
+        pygame.draw.polygon(screen, avg_color, [p1_screen, p2_screen, p3_screen])
 
     pygame.display.flip()
     clock.tick(60)
