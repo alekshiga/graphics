@@ -12,7 +12,7 @@ clock = pygame.time.Clock()
 curved_line = [(y, 50) for y in np.linspace(-100, 100, 20)]
 
 # создадим фигуру путём вращения кривой вокруг оси Y
-def create_rotation_figure(curve):
+def create_rotation_figure_with_caps(curve):
     segment_count = 30
     vertices = []
     triangles = []
@@ -41,9 +41,32 @@ def create_rotation_figure(curve):
             # второй треугольник
             triangles.append([idx2, idx4, idx3])
 
+    # центры крышек
+    bottom_center_idx = len(vertices)
+    top_center_idx = bottom_center_idx + 1
+
+    bottom_y = curve[0][0]
+    bottom_r = curve[0][1]
+    vertices = np.vstack([vertices, np.array([0, bottom_y, 0, 1])])  # центр низа
+
+    top_y = curve[-1][0]
+    top_r = curve[-1][1]
+    vertices = np.vstack([vertices, np.array([0, top_y, 0, 1])])  # центр верха
+
+    for i in range(segment_count):
+        idx1 = i * number_points_in_curve  # нижнее кольцо
+        idx2 = ((i + 1) % segment_count) * number_points_in_curve
+        triangles.append([bottom_center_idx, idx1, idx2])
+
+    for i in range(segment_count):
+        idx1 = i * number_points_in_curve + (number_points_in_curve - 1)  # верхнее кольцо
+        idx2 = ((i + 1) % segment_count) * number_points_in_curve + (number_points_in_curve - 1)
+        triangles.append([top_center_idx, idx2, idx1])
+
+
     return np.array(vertices), triangles
 
-vertices, triangles = create_rotation_figure(curved_line)
+vertices, triangles = create_rotation_figure_with_caps(curved_line)
 
 # матрицы преобразований (из лр1)
 def create_translation_matrix(tx, ty, tz):
@@ -101,6 +124,52 @@ projection_matrix = np.array([
     [0, 0, 0, 1]
 ], dtype=np.float64)
 
+def calculate_normals(vertices, triangles):
+    normals = np.zeros(vertices.shape, dtype=np.float64)
+    normals = normals[:, :3]  # учитываем только XYZ
+
+    for tri in triangles:
+        v0 = vertices[tri[0]][:3]
+        v1 = vertices[tri[1]][:3]
+        v2 = vertices[tri[2]][:3]
+
+        edge1 = v1 - v0
+        edge2 = v2 - v0
+        normal = np.cross(edge1, edge2)
+        normal /= np.linalg.norm(normal) + 1e-10  # нормализация, +1e-10 чтобы избежать деления на 0
+
+        for idx in tri:
+            normals[idx] += normal
+
+    # нормализуем все нормали вершин
+    norms = np.linalg.norm(normals, axis=1, keepdims=True) + 1e-10
+    normals /= norms
+    return normals
+
+
+def phong_lighting(vertex_pos, normal, light_pos, camera_pos, ka=0.1, kd=0.7, ks=0.2, shininess=32):
+    L = light_pos - vertex_pos
+    L /= np.linalg.norm(L)
+
+    V = camera_pos - vertex_pos
+    V /= np.linalg.norm(V)
+
+    N = normal
+    R = 2 * np.dot(N, L) * N - L
+    R /= np.linalg.norm(R)
+
+    ambient = ka
+
+    diff = max(np.dot(N, L), 0)
+    diffuse = kd * diff
+
+    spec = max(np.dot(R, V), 0) ** shininess
+    specular = ks * spec
+
+    intensity = ambient + diffuse + specular
+    intensity = np.clip(intensity, 0, 1)
+    color = int(255 * intensity)
+    return (color, color, color)
 
 running = True
 rotation_angle_x, rotation_angle_y, rotation_angle_z = 0, 0, 0
@@ -146,7 +215,11 @@ while running:
 
     screen.fill((0, 0, 0))
 
-    transformed_vertices = vertices @ model_matrix @ projection_matrix
+    transformed_vertices = vertices @ model_matrix
+
+    normals = calculate_normals(transformed_vertices, triangles)
+
+    projected_vertices = transformed_vertices @ projection_matrix
 
     offset_x = width / 2
     offset_y = height / 2
@@ -169,7 +242,54 @@ while running:
         p2_screen = (p2_proj[0] + offset_x, p2_proj[1] + offset_y)
         p3_screen = (p3_proj[0] + offset_x, p3_proj[1] + offset_y)
 
-        pygame.draw.polygon(screen, (255, 255, 255), [p1_screen, p2_screen, p3_screen], 1)
+        #pygame.draw.polygon(screen, (255, 255, 255), [p1_screen, p2_screen, p3_screen], 1)
+
+        light_pos = np.array([100, 200, -100], dtype=np.float64)
+        camera_pos = np.array([0, 0, -500], dtype=np.float64)
+
+        # вершины в 3D координатах
+        p1_world = transformed_vertices[v1_idx][:3]
+        p2_world = transformed_vertices[v2_idx][:3]
+        p3_world = transformed_vertices[v3_idx][:3]
+
+        edge1 = p2_world - p1_world
+        edge2 = p3_world - p1_world
+        face_normal = np.cross(edge1, edge2)
+        face_normal /= np.linalg.norm(face_normal) + 1e-10  # нормализация
+
+        view_vec = camera_pos - p1_world
+
+        if np.dot(face_normal, view_vec) <= 0:
+            continue
+
+            # находим нормали к каждой вершине треугольника
+        n1 = normals[v1_idx]
+        n2 = normals[v2_idx]
+        n3 = normals[v3_idx]
+
+        # закраска фонга
+        c1 = phong_lighting(p1_world, n1, light_pos, camera_pos)
+        c2 = phong_lighting(p2_world, n2, light_pos, camera_pos)
+        c3 = phong_lighting(p3_world, n3, light_pos, camera_pos)
+
+        color = (
+            (c1[0] + c2[0] + c3[0]),
+            (c1[1] + c2[1] + c3[1]),
+            (c1[2] + c2[2] + c3[2]),
+        )
+
+        # проекция на XY
+        p1_proj = projected_vertices[v1_idx]
+        p2_proj = projected_vertices[v2_idx]
+        p3_proj = projected_vertices[v3_idx]
+
+        p1_screen = (int(p1_proj[0] + offset_x), int(p1_proj[1] + offset_y))
+        p2_screen = (int(p2_proj[0] + offset_x), int(p2_proj[1] + offset_y))
+        p3_screen = (int(p3_proj[0] + offset_x), int(p3_proj[1] + offset_y))
+
+        # закрашиваем треугольники средними цветами
+        pygame.draw.polygon(screen, color, [p1_screen, p2_screen, p3_screen])
+
     pygame.display.flip()
     clock.tick(60)
 
