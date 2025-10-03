@@ -8,12 +8,12 @@ screen = pygame.display.set_mode((width, height))
 pygame.display.set_caption("Освещение")
 clock = pygame.time.Clock()
 
-# кривая, из которой потом получится тело похожее на вазу
+# кривая, из которой потом получится тело похожее на вазу (ПРОЩЕ БЫЛО СДЕЛАТЬ ЦИЛИНДР)
 curved_line = [(y, 50) for y in np.linspace(-100, 100, 20)]
 
 # создадим фигуру путём вращения кривой вокруг оси Y
 def create_rotation_figure_with_caps(curve):
-    segment_count = 30
+    segment_count = 20
     vertices = []
     triangles = []
     number_points_in_curve = len(curve)
@@ -46,11 +46,9 @@ def create_rotation_figure_with_caps(curve):
     top_center_idx = bottom_center_idx + 1
 
     bottom_y = curve[0][0]
-    bottom_r = curve[0][1]
     vertices = np.vstack([vertices, np.array([0, bottom_y, 0, 1])])  # центр низа
 
     top_y = curve[-1][0]
-    top_r = curve[-1][1]
     vertices = np.vstack([vertices, np.array([0, top_y, 0, 1])])  # центр верха
 
     for i in range(segment_count):
@@ -224,7 +222,7 @@ while running:
     offset_x = width / 2
     offset_y = height / 2
 
-    # сортируем треугольники по Z (для правильного закрашивания невидимой части тела)
+    # сортируем треугольники по Z (для правильного закрашивания невидимой части фигуры)
     sorted_triangles = sorted(triangles, key=lambda tri: -np.mean(transformed_vertices[tri, 2]))
     screen.fill((0, 0, 0))
 
@@ -242,7 +240,7 @@ while running:
         p2_screen = (p2_proj[0] + offset_x, p2_proj[1] + offset_y)
         p3_screen = (p3_proj[0] + offset_x, p3_proj[1] + offset_y)
 
-        #pygame.draw.polygon(screen, (255, 255, 255), [p1_screen, p2_screen, p3_screen], 1)
+        # pygame.draw.polygon(screen, (255, 255, 255), [p1_screen, p2_screen, p3_screen], 1)
 
         light_pos = np.array([100, 200, -100], dtype=np.float64)
         camera_pos = np.array([0, 0, -500], dtype=np.float64)
@@ -255,7 +253,7 @@ while running:
         edge1 = p2_world - p1_world
         edge2 = p3_world - p1_world
         face_normal = np.cross(edge1, edge2)
-        face_normal /= np.linalg.norm(face_normal) + 1e-10  # нормализация
+        face_normal /= np.linalg.norm(face_normal) # нормализация
 
         view_vec = camera_pos - p1_world
 
