@@ -6,28 +6,19 @@ import numpy as np
 from OpenGL import GL as gl
 import glfw
 
-
-# Теперь используем np.linalg.norm, как рекомендовано
-# from numpy.linalg import linalg # Эту строку можно удалить
-
 def perspective(near, far, fov, aspect):
     n = near
     f = far
 
-    # Расчёт границ Frustum
-    # NOTE: Я исправил ошибку в вашем коде.
-    # Вероятно, вы хотели делить на 180, а не на 100, для перевода в радианы.
     t = np.tan((fov * np.pi / 180) / 2) * near
     b = -t
     r = t * aspect
     l = b * aspect
 
-    # Проверка на деление на ноль: n и f должны быть разными.
-    # Используем простую проверку, которая не вызовет проблем с NumPy.
-    if abs(n - f) <= 1e-6:  # Добавляем небольшой допуск
-        raise ValueError("Near (n) и Far (f) должны быть существенно разными.")
+    if abs(n - f) <= 0:
+        raise ValueError("near и far должны быть существенно разными.")
 
-    # Формирование транспонированной матрицы (Row-Major)
+
     return np.array((
         ((2 * n) / (r - l), 0, 0, 0),
         (0, (2 * n) / (t - b), 0, 0),
@@ -36,7 +27,6 @@ def perspective(near, far, fov, aspect):
 
 
 def normalized(v):
-    # Теперь используется np.linalg.norm
     norm = np.linalg.norm(v)
     if norm > 0:
         return v / norm
@@ -47,7 +37,6 @@ def normalized(v):
 def look_at(eye, target, up):
     zax = normalized(eye - target)
     xax = normalized(np.cross(up, zax))
-    # ИСПРАВЛЕНО: Правильный порядок (zax, xax) для ортогональности в правой системе координат
     yax = np.cross(zax, xax)
 
     x = - xax.dot(eye)
@@ -67,7 +56,6 @@ def create_mvp(program_id, width, height):
     eye = np.array([2, 3, 3])
     target, up = np.array((0, 0, 0)), np.array((0, 1, 0))
 
-    # ИСПРАВЛЕНО: Правильный порядок аргументов (near, far, fov, aspect)
     projection = perspective(near, far, fov, width / height)
     view = look_at(eye, target, up)
     model = np.identity(4)
@@ -103,8 +91,6 @@ def load_shaders():
     try:
         shader_ids = []
         for shader_type, shader_src in shaders.items():
-            # ... (код компиляции)
-            # (опущено для краткости, код идентичен вашему)
             shader_id = gl.glCreateShader(shader_type)
             gl.glShaderSource(shader_id, shader_src)
 
@@ -216,7 +202,6 @@ def main_loop(window, mvp_id, mvp):
             not glfw.window_should_close(window)
     ):
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
-        # имя MVP должно совпадать с именем в шейдере
         gl.glUniformMatrix4fv(mvp_id, 1, False, mvp)
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, 3)
         glfw.swap_buffers(window)
@@ -228,6 +213,5 @@ if __name__ == '__main__':
     with create_main_window() as window:
         with create_vertex_buffer():
             with load_shaders() as prog_id:
-                # Теперь prog_id содержит корректный ID программы!
                 mvp_id, mvp = create_mvp(prog_id, width, height)
                 main_loop(window, mvp_id, mvp)
