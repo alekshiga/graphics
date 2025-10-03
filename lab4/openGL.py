@@ -2,8 +2,80 @@ import contextlib, sys
 import ctypes
 from asyncio import log
 
+import numpy as np
 from OpenGL import GL as gl
 import glfw
+
+
+# Теперь используем np.linalg.norm, как рекомендовано
+# from numpy.linalg import linalg # Эту строку можно удалить
+
+def perspective(near, far, fov, aspect):
+    n = near
+    f = far
+
+    # Расчёт границ Frustum
+    # NOTE: Я исправил ошибку в вашем коде.
+    # Вероятно, вы хотели делить на 180, а не на 100, для перевода в радианы.
+    t = np.tan((fov * np.pi / 180) / 2) * near
+    b = -t
+    r = t * aspect
+    l = b * aspect
+
+    # Проверка на деление на ноль: n и f должны быть разными.
+    # Используем простую проверку, которая не вызовет проблем с NumPy.
+    if abs(n - f) <= 1e-6:  # Добавляем небольшой допуск
+        raise ValueError("Near (n) и Far (f) должны быть существенно разными.")
+
+    # Формирование транспонированной матрицы (Row-Major)
+    return np.array((
+        ((2 * n) / (r - l), 0, 0, 0),
+        (0, (2 * n) / (t - b), 0, 0),
+        ((r + l) / (r - l), (t + b) / (t - b), (f + n) / (n - f), -1),
+        (0, 0, 2 * f * n / (n - f), 0)))
+
+
+def normalized(v):
+    # Теперь используется np.linalg.norm
+    norm = np.linalg.norm(v)
+    if norm > 0:
+        return v / norm
+    else:
+        return v
+
+
+def look_at(eye, target, up):
+    zax = normalized(eye - target)
+    xax = normalized(np.cross(up, zax))
+    # ИСПРАВЛЕНО: Правильный порядок (zax, xax) для ортогональности в правой системе координат
+    yax = np.cross(zax, xax)
+
+    x = - xax.dot(eye)
+    y = - yax.dot(eye)
+    z = - zax.dot(eye)
+
+    return np.array(((xax[0], yax[0], zax[0], 0),
+                     (xax[1], yax[1], zax[1], 0),
+                     (xax[2], yax[2], zax[2], 0),
+                     (x, y, z, 1)))
+
+
+def create_mvp(program_id, width, height):
+    fov = 60
+    near = 0.01
+    far = 100.0
+    eye = np.array([2, 3, 3])
+    target, up = np.array((0, 0, 0)), np.array((0, 1, 0))
+
+    # ИСПРАВЛЕНО: Правильный порядок аргументов (near, far, fov, aspect)
+    projection = perspective(near, far, fov, width / height)
+    view = look_at(eye, target, up)
+    model = np.identity(4)
+
+    mvp = model @ view @ projection  # Умножение M * V * P
+    matrix_id = gl.glGetUniformLocation(program_id, 'MVP')
+    return matrix_id, mvp.astype(np.float32)
+
 
 @contextlib.contextmanager
 def load_shaders():
@@ -11,9 +83,11 @@ def load_shaders():
         gl.GL_VERTEX_SHADER: '''\
                 #version 330 core
                 layout(location = 0) in vec3 vertexPosition_modelspace;
+                // ДОБАВЛЕНО: Объявление Uniform-переменной MVP
+                uniform mat4 MVP; 
                 void main(){
-                  gl_Position.xyz = vertexPosition_modelspace;
-                  gl_Position.w = 1.0;
+                  // ИСПРАВЛЕНО: Применяем матрицу MVP
+                  gl_Position = MVP * vec4(vertexPosition_modelspace, 1.0); 
                 }
                 ''',
         gl.GL_FRAGMENT_SHADER: '''\
@@ -29,6 +103,8 @@ def load_shaders():
     try:
         shader_ids = []
         for shader_type, shader_src in shaders.items():
+            # ... (код компиляции)
+            # (опущено для краткости, код идентичен вашему)
             shader_id = gl.glCreateShader(shader_type)
             gl.glShaderSource(shader_id, shader_src)
 
@@ -37,9 +113,9 @@ def load_shaders():
             result = gl.glGetShaderiv(shader_id, gl.GL_COMPILE_STATUS)
             info_log_len = gl.glGetShaderiv(shader_id, gl.GL_INFO_LOG_LENGTH)
 
-            if info_log_len:
+            if info_log_len and not result:  # Улучшенная проверка
                 logmsg = gl.glGetShaderInfoLog(shader_id)
-                log.error(logmsg)
+                log.error("Ошибка компиляции шейдера:\n" + str(logmsg))
                 sys.exit(10)
 
             gl.glAttachShader(program_id, shader_id)
@@ -50,19 +126,21 @@ def load_shaders():
         # check if linking was successful
         result = gl.glGetProgramiv(program_id, gl.GL_LINK_STATUS)
         info_log_len = gl.glGetProgramiv(program_id, gl.GL_INFO_LOG_LENGTH)
-        if info_log_len:
+        if info_log_len and not result:  # Улучшенная проверка
             logmsg = gl.glGetProgramInfoLog(program_id)
-            log.error(logmsg)
+            log.error("Ошибка линковки программы:\n" + str(logmsg))
             sys.exit(11)
 
         gl.glUseProgram(program_id)
-        yield
+        # ИСПРАВЛЕНО: Возвращаем ID программы наружу!
+        yield program_id
     finally:
         for shader_id in shader_ids:
             gl.glDetachShader(program_id, shader_id)
             gl.glDeleteShader(shader_id)
         gl.glUseProgram(0)
         gl.glDeleteProgram(program_id)
+
 
 @contextlib.contextmanager
 def create_vertex_array_object():
@@ -73,10 +151,10 @@ def create_vertex_array_object():
     finally:
         gl.glDeleteVertexArrays(1, [vertex_array_id])
 
+
 @contextlib.contextmanager
 def create_vertex_buffer():
     with create_vertex_array_object():
-        # первый треугольник
         vertex_data = [-1, -1, 0,
                        1, -1, 0,
                        0, 1, 0]
@@ -92,14 +170,13 @@ def create_vertex_buffer():
                             array_type(*vertex_data),
                             gl.GL_STATIC_DRAW)
 
-            # читай по 3 числа типа float для каждой вершины
             gl.glVertexAttribPointer(
-                attr_id, # id атрибута
-                3,  # размер (x,y,z)
-                gl.GL_FLOAT, # тип данных float
+                attr_id,
+                3,
+                gl.GL_FLOAT,
                 gl.GL_FALSE,
-                0,   # шаг (0 - плотная упаковка)
-                None  # смещение откуда начинать читать (0)
+                0,
+                None
             )
             gl.glEnableVertexAttribArray(attr_id)
             yield
@@ -132,25 +209,25 @@ def create_main_window():
     finally:
         glfw.terminate()
 
-def main_loop(window):
+
+def main_loop(window, mvp_id, mvp):
     while (
-        glfw.get_key(window, glfw.KEY_ESCAPE) != glfw.PRESS and
-        not glfw.window_should_close(window)
+            glfw.get_key(window, glfw.KEY_ESCAPE) != glfw.PRESS and
+            not glfw.window_should_close(window)
     ):
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-        # рисование треугольника
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+        # имя MVP должно совпадать с именем в шейдере
+        gl.glUniformMatrix4fv(mvp_id, 1, False, mvp)
         gl.glDrawArrays(gl.GL_TRIANGLES, 0, 3)
-        # отображение кадра и обработка событий
         glfw.swap_buffers(window)
         glfw.poll_events()
 
+
 if __name__ == '__main__':
-    # создаём окно
+    width, height = 640, 480
     with create_main_window() as window:
-        # создаём VAO/VBO и настраиваем атрибуты
         with create_vertex_buffer():
-            # комплириуем, линкуем, активируем шейдеры
-            with load_shaders():
-                # запуск цикла рендеринга с готовыми ресурсами
-                main_loop(window)
-                # удаляются шейдеры, удаляются VAO/VBO
+            with load_shaders() as prog_id:
+                # Теперь prog_id содержит корректный ID программы!
+                mvp_id, mvp = create_mvp(prog_id, width, height)
+                main_loop(window, mvp_id, mvp)
