@@ -71,19 +71,26 @@ def load_shaders():
         gl.GL_VERTEX_SHADER: '''\
                 #version 330 core
                 layout(location = 0) in vec3 vertexPosition_modelspace;
-                // ДОБАВЛЕНО: Объявление Uniform-переменной MVP
+                layout(location = 1) in vec3 vertexColor_modelspace;
+
                 uniform mat4 MVP; 
+
+                out vec3 fragmentColor;
+
                 void main(){
-                  // ИСПРАВЛЕНО: Применяем матрицу MVP
                   gl_Position = MVP * vec4(vertexPosition_modelspace, 1.0); 
+                  fragmentColor = vertexColor_modelspace;
                 }
                 ''',
         gl.GL_FRAGMENT_SHADER: '''\
                 #version 330 core
+
+                in vec3 fragmentColor;
                 out vec3 color;
+
                 void main(){
-                  color = vec3(1,0,1);
-                }
+                  color = fragmentColor;
+                } 
                 '''
     }
 
@@ -99,7 +106,7 @@ def load_shaders():
             result = gl.glGetShaderiv(shader_id, gl.GL_COMPILE_STATUS)
             info_log_len = gl.glGetShaderiv(shader_id, gl.GL_INFO_LOG_LENGTH)
 
-            if info_log_len and not result:  # Улучшенная проверка
+            if info_log_len and not result:
                 logmsg = gl.glGetShaderInfoLog(shader_id)
                 log.error("Ошибка компиляции шейдера:\n" + str(logmsg))
                 sys.exit(10)
@@ -109,16 +116,14 @@ def load_shaders():
 
         gl.glLinkProgram(program_id)
 
-        # check if linking was successful
         result = gl.glGetProgramiv(program_id, gl.GL_LINK_STATUS)
         info_log_len = gl.glGetProgramiv(program_id, gl.GL_INFO_LOG_LENGTH)
-        if info_log_len and not result:  # Улучшенная проверка
+        if info_log_len and not result:
             logmsg = gl.glGetProgramInfoLog(program_id)
             log.error("Ошибка линковки программы:\n" + str(logmsg))
             sys.exit(11)
 
         gl.glUseProgram(program_id)
-        # ИСПРАВЛЕНО: Возвращаем ID программы наружу!
         yield program_id
     finally:
         for shader_id in shader_ids:
@@ -137,38 +142,146 @@ def create_vertex_array_object():
     finally:
         gl.glDeleteVertexArrays(1, [vertex_array_id])
 
-
 @contextlib.contextmanager
 def create_vertex_buffer():
+    attr_id_position = 0
+    attr_id_color = 1
+    vertex_buffer = 0  # ID буфера позиций
+    color_buffer = 0  # ID буфера цветов
+
     with create_vertex_array_object():
-        vertex_data = [-1, -1, 0,
-                       1, -1, 0,
-                       0, 1, 0]
-
-        attr_id = 0
-
-        vertex_buffer = gl.glGenBuffers(1)
         try:
+            vertex_buffer = gl.glGenBuffers(1)
             gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vertex_buffer)
-            array_type = (ctypes.c_float * len(vertex_data))
+            array_type = (ctypes.c_float * len(g_vertex_buffer_data))
             gl.glBufferData(gl.GL_ARRAY_BUFFER,
-                            len(vertex_data) * ctypes.sizeof(ctypes.c_float),
-                            array_type(*vertex_data),
+                            len(g_vertex_buffer_data) * ctypes.sizeof(ctypes.c_float),
+                            array_type(*g_vertex_buffer_data),
                             gl.GL_STATIC_DRAW)
 
             gl.glVertexAttribPointer(
-                attr_id,
+                attr_id_position,
                 3,
                 gl.GL_FLOAT,
                 gl.GL_FALSE,
                 0,
                 None
             )
-            gl.glEnableVertexAttribArray(attr_id)
+            gl.glEnableVertexAttribArray(attr_id_position)
+
+            color_buffer = gl.glGenBuffers(1)
+            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_buffer)
+
+            array_type_color = (ctypes.c_float * len(g_color_buffer_data))
+            gl.glBufferData(gl.GL_ARRAY_BUFFER,
+                            len(g_color_buffer_data) * ctypes.sizeof(ctypes.c_float),
+                            array_type_color(*g_color_buffer_data),
+                            gl.GL_STATIC_DRAW)
+
+            gl.glVertexAttribPointer(
+                attr_id_color,
+                3,
+                gl.GL_FLOAT,
+                gl.GL_FALSE,
+                0,
+                None
+            )
+            gl.glEnableVertexAttribArray(attr_id_color)
+
             yield
+
         finally:
-            gl.glDisableVertexAttribArray(attr_id)
-            gl.glDeleteBuffers(1, [vertex_buffer])
+            gl.glDisableVertexAttribArray(attr_id_position)
+            gl.glDisableVertexAttribArray(attr_id_color)
+            gl.glDeleteBuffers(1, [vertex_buffer]) # очистка буфера вершин
+            gl.glDeleteBuffers(1, [color_buffer])  # очистка цветового буфера
+             # x, y, z
+g_vertex_buffer_data = [0, 0, 0,
+               0, -1, 0,
+               -1, 0, 0, # 1
+
+               -1, -1, 0,
+               0, -1, 0,
+               -1, 0, 0, # 2 # треугольники нижней грани
+
+               0, 0, -1,
+               -1, 0, -1,
+               0, -1, -1, # 3
+
+               -1, -1, -1,
+               0, -1, -1,
+               -1, 0, -1, # 4 # треугольники верхной грани
+
+               0, 0, 0,
+               0, -1, 0,
+               0, -1, -1, # 5
+
+               0, -1, -1,
+               0, -1, 0,
+               0, 0, -1, # 6 # треугольники левой грани
+
+               -1, -1, -1,
+               -1, -1, 0,
+               -1, 0, 0, # 7
+
+               -1, 0, -1,
+               -1, -1, -1,
+               -1, 0, 0, # 8 # треугольники правой грани
+
+                0, 0, 0,
+               -1, 0, 0,
+               -1, 0, -1, # 9
+
+               -1, 0, -1,
+               0, 0, 0,
+               0, 0, -1, # 10 # треугольники передней грани
+
+               -1, -1, -1,
+               -1, -1, 0,
+               0, -1, 0, # 11
+
+               -1, -1, -1,
+               0, -1, 0,
+               0, -1, 0] # 12 # треугольники задней грани
+
+g_color_buffer_data = np.array([
+    0.583,  0.771,  0.014,
+    0.609,  0.115,  0.436,
+    0.327,  0.483,  0.844,
+    0.822,  0.569,  0.201,
+    0.435,  0.602,  0.223,
+    0.310,  0.747,  0.402,
+    0.716,  0.738,  0.370,
+    0.302,  0.459,  0.589,
+    0.583,  0.771,  0.014,
+    0.609,  0.115,  0.436,
+    0.327,  0.483,  0.844,
+    0.822,  0.569,  0.201,
+    0.435,  0.602,  0.223,
+    0.310,  0.747,  0.402,
+    0.716,  0.738,  0.370,
+    0.302,  0.459,  0.589,
+    0.583,  0.771,  0.014,
+    0.609,  0.115,  0.436,
+    0.327,  0.483,  0.844,
+    0.822,  0.569,  0.201,
+    0.435,  0.602,  0.223,
+    0.310,  0.747,  0.402,
+    0.716,  0.738,  0.370,
+    0.302,  0.459,  0.589,
+    0.583,  0.771,  0.014,
+    0.609,  0.115,  0.436,
+    0.327,  0.483,  0.844,
+    0.822,  0.569,  0.201,
+    0.435,  0.602,  0.223,
+    0.310,  0.747,  0.402,
+    0.716,  0.738,  0.370,
+    0.302,  0.459,  0.589,
+    0.583,  0.771,  0.014,
+    0.609,  0.115,  0.436,
+    0.327,  0.483,  0.844,
+    0.822,  0.569,  0.201
+], dtype=np.float32)
 
 
 @contextlib.contextmanager
@@ -176,12 +289,7 @@ def create_main_window():
     if not glfw.init():
         sys.exit(1)
     try:
-        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
-        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
-        glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, True)
-        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-
-        title = 'first experience with OpenGL'
+        title = 'Colored Cube'
         window = glfw.create_window(640, 480, title, None, None)
         if not window:
             sys.exit(2)
@@ -189,6 +297,11 @@ def create_main_window():
 
         glfw.set_input_mode(window, glfw.STICKY_KEYS, True)
         gl.glClearColor(0, 0, 0.4, 0)
+
+        # удаление невидимых граней
+        gl.glEnable(gl.GL_DEPTH_TEST)
+        gl.glDepthFunc(gl.GL_LESS)
+        gl.glEnable(gl.GL_CULL_FACE)
 
         yield window
 
@@ -202,8 +315,11 @@ def main_loop(window, mvp_id, mvp):
             not glfw.window_should_close(window)
     ):
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+
         gl.glUniformMatrix4fv(mvp_id, 1, False, mvp)
-        gl.glDrawArrays(gl.GL_TRIANGLES, 0, 3)
+
+        gl.glDrawArrays(gl.GL_TRIANGLES, 0, 12 * 3)
+
         glfw.swap_buffers(window)
         glfw.poll_events()
 
