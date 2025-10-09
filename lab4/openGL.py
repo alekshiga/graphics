@@ -6,6 +6,8 @@ import numpy as np
 from OpenGL import GL as gl
 import glfw
 
+
+
 def perspective(near, far, fov, aspect):
     n = near
     f = far
@@ -34,14 +36,14 @@ def normalized(v):
         return v
 
 
-def look_at(eye, target, up):
-    zax = normalized(eye - target)
+def look_at(target, up):
+    zax = normalized(camera - target)
     xax = normalized(np.cross(up, zax))
     yax = np.cross(zax, xax)
 
-    x = - xax.dot(eye)
-    y = - yax.dot(eye)
-    z = - zax.dot(eye)
+    x = - xax.dot(camera)
+    y = - yax.dot(camera)
+    z = - zax.dot(camera)
 
     return np.array(((xax[0], yax[0], zax[0], 0),
                      (xax[1], yax[1], zax[1], 0),
@@ -49,15 +51,16 @@ def look_at(eye, target, up):
                      (x, y, z, 1)))
 
 
+camera = np.array([2, 3, 3])
+
 def create_mvp(program_id, width, height):
     fov = 60
     near = 0.01
     far = 100.0
-    eye = np.array([2, 3, 3])
     target, up = np.array((0, 0, 0)), np.array((0, 1, 0))
 
     projection = perspective(near, far, fov, width / height)
-    view = look_at(eye, target, up)
+    view = look_at(target, up)
     model = np.identity(4)
 
     mvp = model @ view @ projection  # Умножение M * V * P
@@ -196,93 +199,67 @@ def create_vertex_buffer():
             gl.glDeleteBuffers(1, [vertex_buffer]) # очистка буфера вершин
             gl.glDeleteBuffers(1, [color_buffer])  # очистка цветового буфера
              # x, y, z
-g_vertex_buffer_data = [0, 0, 0,
-               0, -1, 0,
-               -1, 0, 0, # 1
+g_vertex_buffer_data = np.array([
+    -1.0, -1.0, -1.0,
+    -1.0, -1.0,  1.0,
+    -1.0,  1.0,  1.0,
+     1.0,  1.0, -1.0,
+    -1.0, -1.0, -1.0,
+    -1.0,  1.0, -1.0,
+     1.0, -1.0,  1.0,
+    -1.0, -1.0, -1.0,
+     1.0, -1.0, -1.0,
+     1.0,  1.0, -1.0,
+     1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0,
+    -1.0, -1.0, -1.0,
+    -1.0,  1.0,  1.0,
+    -1.0,  1.0, -1.0,
+     1.0, -1.0,  1.0,
+    -1.0, -1.0,  1.0,
+    -1.0, -1.0, -1.0,
+    -1.0,  1.0,  1.0,
+    -1.0, -1.0,  1.0,
+     1.0, -1.0,  1.0,
+     1.0,  1.0,  1.0,
+     1.0, -1.0, -1.0,
+     1.0,  1.0, -1.0,
+     1.0, -1.0, -1.0,
+     1.0,  1.0,  1.0,
+     1.0, -1.0,  1.0,
+     1.0,  1.0,  1.0,
+     1.0,  1.0, -1.0,
+    -1.0,  1.0, -1.0,
+     1.0,  1.0,  1.0,
+    -1.0,  1.0, -1.0,
+    -1.0,  1.0,  1.0,
+     1.0,  1.0,  1.0,
+    -1.0,  1.0,  1.0,
+    1.0, -1.0,  1.0
+], dtype = np.float32)
 
-               -1, -1, 0,
-               0, -1, 0,
-               -1, 0, 0, # 2 # треугольники нижней грани
+g_color_buffer_data = np.zeros(108, dtype=np.float32)
+num_vertices = len(g_vertex_buffer_data) // 3
+distances = []
 
-               0, 0, -1,
-               -1, 0, -1,
-               0, -1, -1, # 3
+for i in range(num_vertices):
+    vertex_pos = np.array(g_vertex_buffer_data[i * 3: i * 3 + 3])
 
-               -1, -1, -1,
-               0, -1, -1,
-               -1, 0, -1, # 4 # треугольники верхной грани
+    # евклидово расстояние
+    distance = np.linalg.norm(vertex_pos - camera)
+    distances.append(distance)
 
-               0, 0, 0,
-               0, -1, 0,
-               0, -1, -1, # 5
+max_distance = max(distances)
 
-               0, -1, -1,
-               0, -1, 0,
-               0, 0, -1, # 6 # треугольники левой грани
+for i in range(num_vertices):
+    idx_color = i * 3
 
-               -1, -1, -1,
-               -1, -1, 0,
-               -1, 0, 0, # 7
+    normalized_dist = distances[i] / max_distance
 
-               -1, 0, -1,
-               -1, -1, -1,
-               -1, 0, 0, # 8 # треугольники правой грани
-
-                0, 0, 0,
-               -1, 0, 0,
-               -1, 0, -1, # 9
-
-               -1, 0, -1,
-               0, 0, 0,
-               0, 0, -1, # 10 # треугольники передней грани
-
-               -1, -1, -1,
-               -1, -1, 0,
-               0, -1, 0, # 11
-
-               -1, -1, -1,
-               0, -1, 0,
-               0, -1, 0] # 12 # треугольники задней грани
-
-g_color_buffer_data = np.array([
-    0.583,  0.771,  0.014,
-    0.609,  0.115,  0.436,
-    0.327,  0.483,  0.844,
-    0.822,  0.569,  0.201,
-    0.435,  0.602,  0.223,
-    0.310,  0.747,  0.402,
-    0.716,  0.738,  0.370,
-    0.302,  0.459,  0.589,
-    0.583,  0.771,  0.014,
-    0.609,  0.115,  0.436,
-    0.327,  0.483,  0.844,
-    0.822,  0.569,  0.201,
-    0.435,  0.602,  0.223,
-    0.310,  0.747,  0.402,
-    0.716,  0.738,  0.370,
-    0.302,  0.459,  0.589,
-    0.583,  0.771,  0.014,
-    0.609,  0.115,  0.436,
-    0.327,  0.483,  0.844,
-    0.822,  0.569,  0.201,
-    0.435,  0.602,  0.223,
-    0.310,  0.747,  0.402,
-    0.716,  0.738,  0.370,
-    0.302,  0.459,  0.589,
-    0.583,  0.771,  0.014,
-    0.609,  0.115,  0.436,
-    0.327,  0.483,  0.844,
-    0.822,  0.569,  0.201,
-    0.435,  0.602,  0.223,
-    0.310,  0.747,  0.402,
-    0.716,  0.738,  0.370,
-    0.302,  0.459,  0.589,
-    0.583,  0.771,  0.014,
-    0.609,  0.115,  0.436,
-    0.327,  0.483,  0.844,
-    0.822,  0.569,  0.201
-], dtype=np.float32)
-
+    # цвет от например от черного (близко) до белого (далеко)
+    g_color_buffer_data[idx_color + 0] = normalized_dist
+    g_color_buffer_data[idx_color + 1] = normalized_dist
+    g_color_buffer_data[idx_color + 2] = normalized_dist
 
 @contextlib.contextmanager
 def create_main_window():
