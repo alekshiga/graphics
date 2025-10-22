@@ -304,49 +304,49 @@ class House:
         glTexCoord2f(0.5, 1.0);
         glVertex3f(0, 0.5, 0)
         glTexCoord2f(0.0, 0.0);
-        glVertex3f(-0.5, -0.5, 0.5)
+        glVertex3f(-0.5, 0, 0.5)
         glTexCoord2f(1.0, 0.0);
-        glVertex3f(0.5, -0.5, 0.5)
+        glVertex3f(0.5, 0, 0.5)
 
         # Правая грань
         glNormal3f(0.5, 0.5, 0)
         glTexCoord2f(0.5, 1.0);
         glVertex3f(0, 0.5, 0)
         glTexCoord2f(0.0, 0.0);
-        glVertex3f(0.5, -0.5, 0.5)
+        glVertex3f(0.5, 0, 0.5)
         glTexCoord2f(1.0, 0.0);
-        glVertex3f(0.5, -0.5, -0.5)
+        glVertex3f(0.5, 0, -0.5)
 
         # Задняя грань
         glNormal3f(0, 0.5, -0.5)
         glTexCoord2f(0.5, 1.0);
         glVertex3f(0, 0.5, 0)
         glTexCoord2f(0.0, 0.0);
-        glVertex3f(0.5, -0.5, -0.5)
+        glVertex3f(0.5, 0, -0.5)
         glTexCoord2f(1.0, 0.0);
-        glVertex3f(-0.5, -0.5, -0.5)
+        glVertex3f(-0.5, 0, -0.5)
 
         # Левая грань
         glNormal3f(-0.5, 0.5, 0)
         glTexCoord2f(0.5, 1.0);
         glVertex3f(0, 0.5, 0)
         glTexCoord2f(0.0, 0.0);
-        glVertex3f(-0.5, -0.5, -0.5)
+        glVertex3f(-0.5, 0, -0.5)
         glTexCoord2f(1.0, 0.0);
-        glVertex3f(-0.5, -0.5, 0.5)
+        glVertex3f(-0.5, 0, 0.5)
         glEnd()
 
         # Основание пирамиды
         glBegin(GL_QUADS)
         glNormal3f(0, -1, 0)
         glTexCoord2f(0.0, 0.0);
-        glVertex3f(-0.5, -0.5, 0.5)
+        glVertex3f(-0.5, 0, 0.5)
         glTexCoord2f(1.0, 0.0);
-        glVertex3f(0.5, -0.5, 0.5)
+        glVertex3f(0.5, 0, 0.5)
         glTexCoord2f(1.0, 1.0);
-        glVertex3f(0.5, -0.5, -0.5)
+        glVertex3f(0.5, 0, -0.5)
         glTexCoord2f(0.0, 1.0);
-        glVertex3f(-0.5, -0.5, -0.5)
+        glVertex3f(-0.5, 0, -0.5)
         glEnd()
 
     def draw_textured_quad(self):
