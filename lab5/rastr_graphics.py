@@ -149,15 +149,12 @@ if __name__ == '__main__':
     # генерация гистограммы
     generate_brightness_histogram(array)
 
-    # преобразуем массив пикселей обратно в объект PIL для отображения и приводим обратно к uint8
-    processed_img = Image.fromarray(np.uint8(array))
-    processed_img.show()
 
-    brightness_change(np.array(processed_img, dtype=np.float32), 100).show()
-    contrast_change(np.array(processed_img, dtype=np.float32), 2).show()
-    # to_binary(np.array(processed_img, dtype=np.float32)).show()
-    to_binary_otsu(np.array(processed_img, dtype=np.float32)).show()
-    to_grey(np.array(processed_img, dtype=np.float32)).show()
+    brightness_change(np.array(img, dtype=np.float32), 100).show()
+    contrast_change(np.array(img, dtype=np.float32), 2).show()
+    # to_binary(np.array(img, dtype=np.float32)).show()
+    to_binary_otsu(np.array(img, dtype=np.float32)).show()
+    to_grey(np.array(img, dtype=np.float32)).show()
 
     region = (300, 300, 800, 600)
-    to_negative(np.array(processed_img, dtype=np.float32), region).show()
+    to_negative(np.array(img, dtype=np.float32), region).show()
